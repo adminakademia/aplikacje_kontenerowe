@@ -1,0 +1,8 @@
+services:
+  nexterm:
+    image: germannewsmaker/nexterm:latest
+    ports:
+      - "6989:6989"
+    restart: always
+    volumes:
+      - /srv/dev-disk-by-uuid-b032144c-1b53-4062-9736-a42af80f5aa8/docker_dane/nexterm:/app/data
