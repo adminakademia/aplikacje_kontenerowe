@@ -5,6 +5,7 @@ services:
     container_name: uptime-kuma
     volumes:
       - /srv/dev-disk-by-uuid-b032144c-1b53-4062-9736-a42af80f5aa8/docker_dane/uptime_kuma:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - 3001:3001  # <Host Port>:<Container Port>
     restart: always
