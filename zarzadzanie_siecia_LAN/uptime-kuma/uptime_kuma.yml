@@ -1,0 +1,10 @@
+version: '3.3'
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    volumes:
+      - /srv/dev-disk-by-uuid-b032144c-1b53-4062-9736-a42af80f5aa8/docker_dane/uptime_kuma:/app/data
+    ports:
+      - 3001:3001  # <Host Port>:<Container Port>
+    restart: always
