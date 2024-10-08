@@ -1,0 +1,11 @@
+services:
+  gotify:
+    image: ghcr.io/gotify/server-arm64:latest
+    container_name: Gotify
+    restart: always
+    ports:
+      - 5544:80
+    volumes:
+      - /srv/dev-disk-by-uuid-b032144c-1b53-4062-9736-a42af80f5aa8/docker_dane/gotify:/app/data:rw
+    environment:
+      TZ: Europe/Warsaw
