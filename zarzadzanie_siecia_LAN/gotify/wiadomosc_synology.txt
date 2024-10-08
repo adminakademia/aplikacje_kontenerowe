@@ -1,0 +1,10 @@
+{
+   "message": "@@TEXT@@",
+   "title": "Synology",
+   "priority": 1,
+   "extras": {
+      "client::display": {
+         "contentType": "text/markdown"
+      }
+   }
+}
