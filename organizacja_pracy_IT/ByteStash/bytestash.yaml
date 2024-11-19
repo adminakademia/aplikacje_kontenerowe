@@ -1,0 +1,20 @@
+services:
+  bytestash:
+    image: "ghcr.io/jordan-dalby/bytestash:latest"
+    container_name: bytestash
+    volumes:
+      - /path/to/data:/data/snippets
+    ports:
+      - 5000:5000
+    environment:
+      - BASE_PATH=
+      # if auth username or password are left blank then authorisation is disabled
+      # the username used for logging in
+      - AUTH_USERNAME=bytestash
+      # the password used for logging in
+      - AUTH_PASSWORD=password
+      # the jwt secret used by the server, make sure to generate your own secret token to replace this one
+      - JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.nhan23TF0qyO4l4rDMkJ8ebNLMgV62NGfBozt9huymA
+      # how long the token lasts, examples: "2 days", "10h", "7d", "1m", "60s"
+      - TOKEN_EXPIRY=24h
+    restart: unless-stopped
