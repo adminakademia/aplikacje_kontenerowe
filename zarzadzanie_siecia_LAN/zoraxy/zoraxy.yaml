@@ -12,5 +12,3 @@ services:
       - /etc/localtime:/etc/localtime
     environment:
       FASTGEOIP: "true"
-	  
-	  
