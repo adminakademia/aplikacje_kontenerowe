@@ -1,0 +1,74 @@
+theme: dark #Przełącz między trybem ciemnym a jasnym w apliakcji web'owej
+jwt_secret: bXuDBt9+2ZWzFVobEk56+CF1GYKqu1iAj9W+Q36y2xeE1iOxgNwNVR7FZxjzyKDt #Zaktualizuj ten sekret na inny aby był unikalny
+log:
+  level: debug
+
+default_redirection_url: https://adminakademia.pl #adres przekierowania dla nieistniejącego URL
+
+server:
+  host: 0.0.0.0
+  port: 9091
+
+totp:
+  issuer: karcewicz.pl #Zmień na swoją domenę główną. Authelia obsługuje tylko jedną domenę główną. Aby obsługiwać wiele domen głównych, musisz utworzyć wiele instancji Authelii.
+  period: 30
+  skew: 1
+
+authentication_backend:
+  disable_reset_password: false
+  refresh_interval: 5m
+  file:
+    path: /config/users_database.yml
+    password:
+      algorithm: argon2id
+      iterations: 1
+      key_length: 32
+      salt_length: 16
+      memory: 1024
+      parallelism: 8
+
+access_control:
+  default_policy: deny
+  rules:
+    - domain: "auth.karcewicz.pl" #Konfiguracja dostępu dla wskazanej pojedynczej domeny dla Autheli
+      policy: bypass
+    - domain: "exdrawtest.karcewicz.pl" #Konfiguracja dostępu dla wskazanej pojedynczej domeny dla Autheli
+      policy: one_factor
+      subject:
+        - "group:admins"  #Zezwól na dostęp tylko użytkownikom z grupy 'admins'
+    - domain: "*.karcewicz.pl" #Konfiguracja dostępu dla wszystkich podddomen w ramach wskazanej domeny po gwiazdce dla Autheli
+      policy: one_factor
+
+session:
+  name: authelia_session
+  secret: SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c #Zaktualizuj ten sekret na inny aby był unikalny
+  expiration: 36000  #Sesja wygasa po 10 godzinach
+  inactivity: 3600  #Wylogowanie z powodu braku aktywności po 1 godzinie
+  domain: karcewicz.pl  #Zmień na swoją domenę główną
+  
+regulation:
+  max_retries: 5
+  find_time: 10m
+  ban_time: 12h
+
+storage:
+  local:
+    path: /config/db.sqlite3
+  encryption_key: eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ #Zastąp losowym ciągiem znaków dłuższym niż 20 znaków
+
+notifier:
+  disable_startup_check: true
+  smtp:
+    username: john@example.com #Twój adres e-mail SMTP
+    password: iwibmFtZSI6Ikp #Twoje hasło SMTP
+    host: smtp.gmail.com #Serwer SMTP
+    port: 587 #Port SMTP
+    sender: john@example.com #Twój adres e-mail SMTP
+    identifier: localhost
+    subject: "[Authelia] {title}" #Temat wiadomości e-mail
+    startup_check_address: john@example.com #Twój adres e-mail SMTP
+    disable_require_tls: false
+    disable_html_emails: false
+    tls:
+      skip_verify: false
+      minimum_version: TLS1.2
