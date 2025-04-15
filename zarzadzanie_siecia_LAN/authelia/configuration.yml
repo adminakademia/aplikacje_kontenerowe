@@ -62,18 +62,50 @@ storage:
   encryption_key: eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ #Zastąp losowym ciągiem znaków dłuższym niż 20 znaków
 
 notifier:
-  disable_startup_check: true
-  smtp:
-    username: john@example.com #Twój adres e-mail SMTP
-    password: iwibmFtZSI6Ikp #Twoje hasło SMTP
-    host: smtp.gmail.com #Serwer SMTP
-    port: 587 #Port SMTP
-    sender: john@example.com #Twój adres e-mail SMTP
-    identifier: localhost
-    subject: "[Authelia] {title}" #Temat wiadomości e-mail
-    startup_check_address: john@example.com #Twój adres e-mail SMTP
-    disable_require_tls: false
-    disable_html_emails: false
-    tls:
-      skip_verify: false
-      minimum_version: TLS1.2
+  filesystem:
+    filename: /config/notification.txt
+
+#  disable_startup_check: true
+#  smtp:
+#    username: john@example.com #Twój adres e-mail SMTP
+#    password: iwibmFtZSI6Ikp #Twoje hasło SMTP
+#    host: smtp.gmail.com #Serwer SMTP
+#    port: 587 #Port SMTP
+#    sender: john@example.com #Twój adres e-mail SMTP
+#    identifier: localhost
+#    subject: "[Authelia] {title}" #Temat wiadomości e-mail
+#    startup_check_address: john@example.com #Twój adres e-mail SMTP
+#    disable_require_tls: false
+#    disable_html_emails: false
+#    tls:
+#      skip_verify: false
+#      minimum_version: TLS1.2
+
+
+webauthn:
+  disable: false
+  enable_passkey_login: true
+  display_name: 'Authelia'
+  attestation_conveyance_preference: 'indirect'
+  timeout: '60 seconds'
+  filtering:
+    permitted_aaguids: []
+    prohibited_aaguids: []
+    prohibit_backup_eligibility: false
+  selection_criteria:
+    attachment: ''
+    discoverability: 'preferred'
+    user_verification: 'preferred'
+  metadata:
+    enabled: false
+    validate_trust_anchor: true
+    validate_entry: true
+    validate_entry_permit_zero_aaguid: false
+    validate_status: true
+    validate_status_permitted: []
+    validate_status_prohibited:
+      - 'REVOKED'
+      - 'USER_KEY_PHYSICAL_COMPROMISE'
+      - 'USER_KEY_REMOTE_COMPROMISE'
+      - 'USER_VERIFICATION_BYPASS'
+      - 'ATTESTATION_KEY_COMPROMISE'
