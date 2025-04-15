@@ -1,0 +1,14 @@
+#### Wygenerowanie certyfikatu SSL samopodpisanego
+
+openssl req -new -days 365 -nodes -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -subj "/C=PL/ST=SLASK/L=Gliwice/O=Contoso/OU=IT/CN=*.karcewicz.pl/emailAddress=kontakt@adminakademia.pl" -keyout karcewiczwild.key -out karcewiczwild.pem -addext "subjectAltName=DNS:karcewicz.pl,DNS:*.karcewicz.pl"
+
+
+
+#### Wygenerowanie sekretu dla 'jwt_secret', 'secret', 'encryption_key' w configuration.yml:
+
+tr -cd '[:alnum:]' < /dev/urandom | fold -w "64" | head -n 1
+
+
+#### Wygenerowanie hasła dla użytkownika
+
+docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password 'P@$$word123'
