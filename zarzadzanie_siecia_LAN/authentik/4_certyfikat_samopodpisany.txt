@@ -1,0 +1,1 @@
+openssl req -new -days 36500 -nodes -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -subj "/C=PL/ST=SLASK/L=Gliwice/O=Contoso/OU=IT/CN=*.karcewicz.pl/emailAddress=kontakt@adminakademia.pl" -keyout karcewiczwild.key -out karcewiczwild.pem -addext "subjectAltName=DNS:karcewicz.pl,DNS:*.karcewicz.pl"
