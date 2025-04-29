@@ -16,6 +16,7 @@ echo "AUTHENTIK_ERROR_REPORTING__ENABLED=true" >> .env
 
 
 root@debian:/docker/authentik# chmod +x passgen.sh
+root@debian:/docker/authentik# ./passgen.sh
 
 root@debian:/docker/authentik# mcedit .env
 
