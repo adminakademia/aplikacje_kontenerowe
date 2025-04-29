@@ -1,0 +1,11 @@
+services:
+  openreader-webui:
+    container_name: openreader-webui
+    image: ghcr.io/richardr1126/openreader-webui:latest
+    environment:
+      - API_BASE=http://host.docker.internal:8880/v1
+    ports:
+      - "3003:3003"
+    volumes:
+      - /docker/docstore:/app/docstore
+    restart: unless-stopped
