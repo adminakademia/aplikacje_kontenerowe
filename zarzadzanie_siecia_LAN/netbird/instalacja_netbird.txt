@@ -24,4 +24,4 @@ sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin 
 
 apt install docker-compose -y
 
-export NETBIRD_DOMAIN=netbirdtest.jojeadmin.pl; curl -fsSL https://github.com/netbirdio/netbird/releases/latest/download/getting-started-with-zitadel.sh | bash
+export NETBIRD_DOMAIN=netbird.jojeadmin.pl; curl -fsSL https://github.com/netbirdio/netbird/releases/latest/download/getting-started-with-zitadel.sh | bash
