@@ -1,0 +1,27 @@
+services:
+  npmplus:
+    container_name: npmplus
+    image: docker.io/zoeyvid/npmplus:latest 
+    restart: always
+    network_mode: host
+    volumes:
+      - "/docker/npmplus:/data"
+    environment:
+      - "TZ=Europe/Warsaw" 
+      - "ACME_EMAIL=twoj@adres.emal" # Wpisz tutaj swój adres e-mail na potrzeby wystawianych certyfikatów Let's Encrypt
+
+  crowdsec:
+    container_name: crowdsec
+    image: docker.io/crowdsecurity/crowdsec:latest
+    restart: always
+    network_mode: bridge
+    ports:
+      - "127.0.0.1:7422:7422"
+      - "127.0.0.1:8080:8080"
+    environment:
+      - "TZ=Europe/Warsaw" 
+      - "COLLECTIONS=ZoeyVid/npmplus"
+    volumes:
+      - "/docker/crowdsec/conf:/etc/crowdsec"
+      - "/docker/crowdsec/data:/var/lib/crowdsec/data"
+      - "/docker/npmplus/nginx:/opt/npmplus/nginx:ro"
