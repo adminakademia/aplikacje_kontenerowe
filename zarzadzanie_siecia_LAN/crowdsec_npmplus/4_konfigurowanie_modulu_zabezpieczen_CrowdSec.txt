@@ -1,0 +1,25 @@
+# Tworzymy katalog:
+root@npmplus:~# mkdir -p /docker/crowdsec/conf/acquis.d/
+
+# A w nim plik konfiguracyjny:
+root@npmplus:~# mcedit /docker/crowdsec/conf/acquis.d/npmplus.yaml
+
+
+# Do którego wklejamy poniższą zawartość:
+
+filenames:
+  - /opt/npmplus/nginx/*.log
+labels:
+  type: npmplus
+---
+filenames:
+  - /opt/npmplus/nginx/*.log
+labels:
+  type: modsecurity
+---
+listen_addr: 0.0.0.0:7422
+appsec_config: crowdsecurity/appsec-default
+name: appsec
+source: appsec
+labels:
+  type: appsec
