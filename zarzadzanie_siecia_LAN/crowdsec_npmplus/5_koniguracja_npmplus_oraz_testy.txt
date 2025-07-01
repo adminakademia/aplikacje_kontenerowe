@@ -1,0 +1,32 @@
+# Tworzymy klucz API do połączenia między NPM Plus a CrowdSec:
+
+root@npmplus:~# docker exec crowdsec cscli bouncers add npmplus -o raw
+
+
+# Za pomocą tego klucza można teraz sprawić, aby NPMplus działał z CrowdSec, edytując plik "/docker/npmplus/crowdsec/crowdsec.conf":
+
+root@npmplus:~# mcedit /docker/npmplus/crowdsec/crowdsec.conf
+
+
+# Gdzie w powyższym pliku trzeba włączyć obsługę CrowdSec w NPMPlus (zmienna "ENABLED" do ustawienia na "true"), 
+# jak również wpisać klucz API z wykorzystaniem którego będzie realizowanie uwierzytelniania połączenia z CrowdSec (zmienna "API_KEY"). 
+# Przykładowo:
+
+ENABLED=true
+API_URL=http://127.0.0.1:8080
+API_KEY=9kMer0yAt45JbV047+tAukTdwDAakmih5kYOry9W3BY
+
+
+# Teraz trzeba ponownie uruchomić stos kontenerów NPMplus
+# i po uruchomieniu ponownym w przeglądarce internetowej wywołać adres URL NPMPLus (używając wcześniej skopiowanych z logów poświadczeń):
+https://<ip-twojego-serwera>:81
+
+
+# Aby przetestować działanie, dodaj adres IP na jakim świat "widzi" twój komputer (https://whatismyipaddress.com/) 
+# na końcu poniższego polecenia, aby zablokować z tego adresu IP połączenia (po połączeniu powinno się zobaczyć stronę blokady):
+
+root@npmplus:~# docker exec -it crowdsec cscli decisions add -i <ip-do-zablokowania>
+
+# Po czym można usunąć blokowany adres IP:
+root@npmplus:~# docker exec -it crowdsec cscli decisions delete -i <ip-do-zablokowania>
+
