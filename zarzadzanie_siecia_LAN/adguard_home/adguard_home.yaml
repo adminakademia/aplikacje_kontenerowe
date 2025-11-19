@@ -1,0 +1,21 @@
+services:
+  adguardhome:
+    image: adguard/adguardhome
+    container_name: adguardhome
+    restart: always
+    ports:
+      - "53:53/tcp"         # DNS TCP
+      - "53:53/udp"         # DNS UDP
+      - "67:67/udp"         # DHCP UDP (optional)
+      - "80:80/tcp"         # HTTP web interface
+      - "443:443/tcp"       # HTTPS web interface
+      - "3000:3000/tcp"     # AdGuard API port
+      - "853:853/tcp"       # DNS-over-TLS
+      - "784:784/udp"       # DNS-over-QUIC
+      - "853:853/udp"       # DNS-over-DTLS
+      - "8853:8853/udp"     # DNS-over-TLS alternative
+      - "5443:5443/tcp"     # DNSCrypt TCP
+      - "5443:5443/udp"     # DNSCrypt UDP
+    volumes:
+      - /docker/adguard/work:/opt/adguardhome/work
+      - /docker/adguard/conf:/opt/adguardhome/conf
