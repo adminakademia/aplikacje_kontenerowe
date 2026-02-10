@@ -341,45 +341,6 @@ prepare_netbird_files() {
     header "ETAP 4: Przygotowanie plików NetBird"
     CURRENT_STAGE="przygotowanie plików NetBird"
 
-    # Ustawienie uprawnień — pliki wrażliwe (env)
-    log "Ustawianie uprawnień plików w ${NETBIRD_DIR}..."
-    for file in "${SENSITIVE_FILES[@]}"; do
-        if [[ -f "${NETBIRD_DIR}/${file}" ]]; then
-            chmod 600 "${NETBIRD_DIR}/${file}"
-            log "  ${file} -> 600"
-        fi
-    done
-
-    # Ustawienie uprawnień — pliki publiczne
-    for file in "${PUBLIC_FILES[@]}"; do
-        if [[ -f "${NETBIRD_DIR}/${file}" ]]; then
-            chmod 644 "${NETBIRD_DIR}/${file}"
-            log "  ${file} -> 644"
-        fi
-    done
-
-    # Ustawienie uprawnień — machinekey
-    if [[ -d "${NETBIRD_DIR}/machinekey" ]]; then
-        chmod -R 700 "${NETBIRD_DIR}/machinekey"
-        log "  machinekey/ -> 700"
-    fi
-
-    # Ustawienie właściciela wolumenów Docker
-    log "Ustawianie właściciela wolumenów Docker..."
-    local volumes_found=0
-    for vol_dir in /var/lib/docker/volumes/netbird_*; do
-        if [[ -d "$vol_dir" ]]; then
-            chown -R root:root "$vol_dir"
-            volumes_found=$((volumes_found + 1))
-        fi
-    done
-
-    if [[ $volumes_found -gt 0 ]]; then
-        log "Ustawiono właściciela dla ${volumes_found} wolumenów netbird_*."
-    else
-        warn "Nie znaleziono wolumenów netbird_* do ustawienia uprawnień."
-    fi
-
     # Weryfikacja docker-compose.yml
     log "Walidacja docker-compose.yml..."
     cd "$NETBIRD_DIR"
@@ -683,16 +644,15 @@ main() {
 
     echo ""
     echo -e "${BOLD}Ten skrypt wykona następujące operacje:${NC}"
-    echo "  1. Walidacja wstępna (pliki, wolumeny, sieć)"
-    echo "  2. Konfiguracja systemu (hostname, pakiety)"
-    echo "  3. Konfiguracja firewalla (UFW)"
-    echo "  4. Instalacja Docker"
-    echo "  5. Przygotowanie plików NetBird (uprawnienia w ${NETBIRD_DIR})"
-    echo "  6. Uruchomienie NetBird (docker compose up z ${NETBIRD_DIR})"
+    echo "  1. Walidacja wstępna (pliki, wolumeny, sieć) oraz konfiguracja systemu (hostname, pakiety)"
+    echo "  2. Konfiguracja firewalla (UFW)"
+    echo "  3. Instalacja Docker
+    echo "  4. Przygotowanie plików NetBird
+    echo "  5. Uruchomienie NetBird (docker compose up z ${NETBIRD_DIR})"
     if [[ "$INSTALL_CROWDSEC" == true ]]; then
-        echo "  7. Instalacja i konfiguracja CrowdSec"
+        echo "  6-7. Instalacja i konfiguracja CrowdSec"
     else
-        echo "  7. Instalacja CrowdSec — POMINIĘTA (INSTALL_CROWDSEC=false)"
+        echo "  6-7. Instalacja i konfiguracja CrowdSec — POMINIĘTA (INSTALL_CROWDSEC=false)"
     fi
     echo "  8. Weryfikacja końcowa"
     echo ""
