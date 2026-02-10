@@ -152,7 +152,7 @@ preflight_checks() {
 
     # Sprawdzenie wolumenów Docker
     local volumes_found
-    volumes_found=$(find /var/lib/docker/volumes/ -maxdepth 1 -name 'netbird_*' -type d 2>/dev/null | wc -l)
+    volumes_found=$(find /var/lib/docker/volumes/ -maxdepth 1 -name '*netbird_*' -type d 2>/dev/null | wc -l)
     if [[ "$volumes_found" -eq 0 ]]; then
         warn "Nie znaleziono wolumenów netbird_* w /var/lib/docker/volumes/"
         warn "Upewnij się, że wolumeny zostały przekopiowane z backupu."
