@@ -1,17 +1,19 @@
 #!/bin/bash
-# =============================================================================
+# ========================================================================================
 # Skrypt przywracania dla samodzielnie utrzymywanego NetBird
 # Utworzony dla OS: Debian 13 (Trixie)
-# =============================================================================
+# ========================================================================================
 # WYMAGANIA WSTĘPNE (wykonaj ręcznie przed uruchomieniem skryptu):
-#   1. Utwórz katalogi jako użytkownik "root":  
-#      mkdir -p /netbird /var/lib/docker/volumes/
+#   1. Utwórz katalogi jako użytkownik "root" (w pierwszym przypadki zamiast netbird 
+#      możesz utworzyć inny katalog - wtedy poniżej podaj go w zmiennej "NETBIRD_DIR"):  
+#      mkdir /netbird 
+#      mkdir /var/lib/docker/volumes/
 #   2. Przekopiuj wolumeny Docker:  /var/lib/docker/volumes/netbird_*
 #   3. Przekopiuj katalog z plikami NetBird:  /netbird/
 #      Zawierający: docker-compose.yml, Caddyfile, dashboard.env, relay.env,
 #                   management.json, turnserver.conf, zitadel.env, zdb.env,
 #                   machinekey/
-# =============================================================================
+# ========================================================================================
 
 set -euo pipefail
 
@@ -350,6 +352,128 @@ prepare_netbird_files() {
         warn "docker-compose.yml: walidacja zwróciła ostrzeżenia (sprawdź log)."
     fi
 
+    # Dostosowanie nazw wolumenów Docker do katalogu NETBIRD_DIR
+    # Docker Compose nadaje wolumenom przedrostek = nazwa katalogu roboczego.
+    # Jeśli backup powstał z /root/, wolumeny mają przedrostek "root_",
+    # ale skrypt uruchamia compose z NETBIRD_DIR, więc oczekiwany przedrostek
+    # musi się zgadzać — w przeciwnym razie Docker utworzy nowe puste wolumeny.
+    local docker_volumes="/var/lib/docker/volumes"
+    local expected_prefix
+    expected_prefix=$(basename "$NETBIRD_DIR")
+    log "Sprawdzanie przedrostków wolumenów Docker (oczekiwany: ${expected_prefix})..."
+
+    local volumes_to_rename=()
+    while IFS= read -r -d '' vol_dir; do
+        local vol_name
+        vol_name=$(basename "$vol_dir")
+        local current_prefix="${vol_name%%_netbird_*}"
+        if [[ "$current_prefix" != "$expected_prefix" ]]; then
+            volumes_to_rename+=("$vol_name")
+        fi
+    done < <(find "$docker_volumes" -maxdepth 1 -name '*_netbird_*' -type d -print0 2>/dev/null)
+
+    if [[ ${#volumes_to_rename[@]} -gt 0 ]]; then
+        log "Znaleziono ${#volumes_to_rename[@]} wolumenów z innym przedrostkiem. Zmiana nazw..."
+
+        # Zatrzymanie Docker przed zmianą nazw wolumenów
+        log "Zatrzymywanie Docker daemon..."
+        systemctl stop docker
+
+        for vol_name in "${volumes_to_rename[@]}"; do
+            local suffix="${vol_name#*_netbird_}"
+            local new_name="${expected_prefix}_netbird_${suffix}"
+
+            if [[ -d "${docker_volumes}/${new_name}" ]]; then
+                warn "  Wolumen ${new_name} już istnieje — pomijam zmianę nazwy ${vol_name}."
+                continue
+            fi
+
+            log "  ${vol_name} -> ${new_name}"
+            mv "${docker_volumes}/${vol_name}" "${docker_volumes}/${new_name}"
+        done
+
+        # Ponowne uruchomienie Docker
+        log "Uruchamianie Docker daemon..."
+        systemctl start docker
+        sleep 3
+
+        if ! docker info &>/dev/null 2>&1; then
+            abort "Docker daemon nie uruchomił się po zmianie nazw wolumenów."
+        fi
+        log "Nazwy wolumenów dostosowane do przedrostka: ${expected_prefix}"
+    else
+        log "Przedrostki wolumenów zgodne (${expected_prefix}) — brak zmian."
+    fi
+
+    # Nadanie uprawnień plikom konfiguracyjnym
+    log "Ustawianie uprawnień plików konfiguracyjnych..."
+
+    # Pliki wrażliwe (.env) — 600 (rw-------)
+    for file in "${SENSITIVE_FILES[@]}"; do
+        if [[ -f "${NETBIRD_DIR}/${file}" ]]; then
+            chmod 600 "${NETBIRD_DIR}/${file}"
+            log "  ${file}: 600"
+        fi
+    done
+
+    # Pliki publiczne — 644 (rw-r--r--)
+    for file in "${PUBLIC_FILES[@]}"; do
+        if [[ -f "${NETBIRD_DIR}/${file}" ]]; then
+            chmod 644 "${NETBIRD_DIR}/${file}"
+            log "  ${file}: 644"
+        fi
+    done
+
+    # Plik .env — 644 (rw-r--r--)
+    if [[ -f "${NETBIRD_DIR}/.env" ]]; then
+        chmod 644 "${NETBIRD_DIR}/.env"
+        log "  .env: 644"
+    fi
+
+    # Katalog machinekey — 700 (rwx------)
+    if [[ -d "${NETBIRD_DIR}/machinekey" ]]; then
+        chmod 700 "${NETBIRD_DIR}/machinekey"
+        log "  machinekey/: 700"
+    fi
+
+    # Token Zitadel — 700 (rwx------), właściciel 1000:1000
+    if [[ -f "${NETBIRD_DIR}/machinekey/zitadel-admin-sa.token" ]]; then
+        chmod 700 "${NETBIRD_DIR}/machinekey/zitadel-admin-sa.token"
+        chown root:root "${NETBIRD_DIR}/machinekey/zitadel-admin-sa.token"
+        log "  machinekey/zitadel-admin-sa.token: 700 (root:root)"
+    fi
+
+    log "Uprawnienia plików konfiguracyjnych ustawione."
+
+    # Nadanie uprawnień wolumenom Docker
+    local docker_volumes="/var/lib/docker/volumes"
+    log "Ustawianie uprawnień wolumenów Docker..."
+
+    # Wolumen management (root:root, katalogi 755, pliki 644)
+    local mgmt_vol
+    mgmt_vol=$(find "$docker_volumes" -maxdepth 1 -name '*netbird_management' -type d 2>/dev/null | head -1)
+    if [[ -n "$mgmt_vol" && -d "${mgmt_vol}/_data" ]]; then
+        chown -R root:root "${mgmt_vol}/_data"
+        find "${mgmt_vol}/_data" -type d -exec chmod 755 {} \;
+        find "${mgmt_vol}/_data" -type f -exec chmod 644 {} \;
+        log "  $(basename "$mgmt_vol")/_data: root:root, katalogi 755, pliki 644"
+    else
+        warn "  Nie znaleziono wolumenu *netbird_management"
+    fi
+
+    # Wolumen zdb_data — PostgreSQL (70:70, katalogi 700, pliki 600)
+    local zdb_vol
+    zdb_vol=$(find "$docker_volumes" -maxdepth 1 -name '*netbird_zdb_data' -type d 2>/dev/null | head -1)
+    if [[ -n "$zdb_vol" && -d "${zdb_vol}/_data" ]]; then
+        chown -R 70:70 "${zdb_vol}/_data"
+        find "${zdb_vol}/_data" -type d -exec chmod 700 {} \;
+        find "${zdb_vol}/_data" -type f -exec chmod 600 {} \;
+        log "  $(basename "$zdb_vol")/_data: 70:70, katalogi 700, pliki 600"
+    else
+        warn "  Nie znaleziono wolumenu *netbird_zdb_data"
+    fi
+
+    log "Uprawnienia wolumenów Docker ustawione."
     log "Pliki NetBird przygotowane."
 }
 
