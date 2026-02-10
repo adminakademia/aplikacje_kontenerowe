@@ -164,7 +164,8 @@ preflight_checks() {
     fi
 
     # Sprawdzenie połączenia z internetem
-    if ! curl -sf --max-time 10 https://deb.debian.org >/dev/null 2>&1; then
+    if ! wget -q --spider --timeout=10 https://deb.debian.org 2>/dev/null && \
+       ! bash -c 'echo >/dev/tcp/deb.debian.org/443' 2>/dev/null; then
         abort "Brak połączenia z internetem. Wymagane do instalacji pakietów."
     fi
     log "Połączenie z internetem: OK"
