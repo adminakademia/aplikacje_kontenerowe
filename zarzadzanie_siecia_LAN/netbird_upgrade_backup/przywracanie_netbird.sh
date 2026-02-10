@@ -4,8 +4,10 @@
 # Utworzony dla OS: Debian 13 (Trixie)
 # =============================================================================
 # WYMAGANIA WSTĘPNE (wykonaj ręcznie przed uruchomieniem skryptu):
-#   1. Przekopiuj wolumeny Docker:  /var/lib/docker/volumes/netbird_*
-#   2. Przekopiuj katalog z plikami NetBird:  /netbird/
+#   1. Utwórz katalogi jako użytkownik "root":  
+#      mkdir -p /netbird /var/lib/docker/volumes/
+#   2. Przekopiuj wolumeny Docker:  /var/lib/docker/volumes/netbird_*
+#   3. Przekopiuj katalog z plikami NetBird:  /netbird/
 #      Zawierający: docker-compose.yml, Caddyfile, dashboard.env, relay.env,
 #                   management.json, turnserver.conf, zitadel.env, zdb.env,
 #                   machinekey/
@@ -17,10 +19,10 @@ set -euo pipefail
 NETBIRD_DIR="/netbird"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE="/var/log/netbird-recovery_${TIMESTAMP}.log"
-HOSTNAME="vm-netbird"
-INSTALL_CROWDSEC=true          # jeżeli chcesz też zainstalować CrowdSec: true = instaluj CrowdSec, false = pomiń instalację
-CROWDSEC_PORT=8081             # zmieniamy port z 8080 (konflikt z NetBird) - możesz podać w razie potrzeby inny port
-CROWDSEC_ENROLL_KEY="1234567890" # tutaj wpisz odczytany w panelu web CrowdSec klucz podpinający ten system
+HOSTNAME="vm-netbird"          # Nadaj nazwę hosta
+INSTALL_CROWDSEC=true          # Jeżeli chcesz też zainstalować CrowdSec: true = instaluj CrowdSec, false = pomiń instalację
+CROWDSEC_PORT=8081             # Zmieniamy port z 8080 (konflikt z NetBird) - możesz podać w razie potrzeby inny port
+CROWDSEC_ENROLL_KEY="1234567890" # Tutaj wpisz odczytany w panelu web CrowdSec klucz podpinający ten system
 
 # Porty do odblokowania w zaporze ogniowej UFW
 UFW_TCP_PORTS="22 80 443 33073 10000 33080"
