@@ -84,7 +84,7 @@ retry() {
         fi
         warn "Komenda nie powiodła się (próba ${attempt}/${retries}). Ponawiam za ${delay}s..."
         sleep "$delay"
-        ((attempt++))
+        attempt=$((attempt + 1))
     done
     return 1
 }
@@ -370,7 +370,7 @@ prepare_netbird_files() {
     for vol_dir in /var/lib/docker/volumes/netbird_*; do
         if [[ -d "$vol_dir" ]]; then
             chown -R root:root "$vol_dir"
-            ((volumes_found++)) || true
+            volumes_found=$((volumes_found + 1))
         fi
     done
 
@@ -595,7 +595,7 @@ final_verification() {
         log "  Docker: OK"
     else
         err "  Docker: NIE DZIAŁA"
-        ((errors++)) || true
+        errors=$((errors + 1))
     fi
 
     # Kontenery NetBird
@@ -611,10 +611,10 @@ final_verification() {
         state=$(docker compose ps --format '{{.State}}' "$svc" 2>/dev/null || echo "missing")
         if [[ "$state" == "running" ]]; then
             log "  ${svc}: OK"
-            ((running++)) || true
+            running=$((running + 1))
         else
             err "  ${svc}: ${state}"
-            ((errors++)) || true
+           errors=$((errors + 1))
         fi
     done
     log "  Kontenery: ${running}/${total} działają."
@@ -625,7 +625,7 @@ final_verification() {
         log "  UFW: aktywny"
     else
         warn "  UFW: nieaktywny"
-        ((errors++)) || true
+        errors=$((errors + 1))
     fi
 
     # CrowdSec
