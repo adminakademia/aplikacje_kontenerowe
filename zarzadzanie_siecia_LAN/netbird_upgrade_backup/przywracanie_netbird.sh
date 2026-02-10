@@ -646,8 +646,8 @@ main() {
     echo -e "${BOLD}Ten skrypt wykona następujące operacje:${NC}"
     echo "  1. Walidacja wstępna (pliki, wolumeny, sieć) oraz konfiguracja systemu (hostname, pakiety)"
     echo "  2. Konfiguracja firewalla (UFW)"
-    echo "  3. Instalacja Docker
-    echo "  4. Przygotowanie plików NetBird
+    echo "  3. Instalacja Docker"
+    echo "  4. Przygotowanie plików NetBird"
     echo "  5. Uruchomienie NetBird (docker compose up z ${NETBIRD_DIR})"
     if [[ "$INSTALL_CROWDSEC" == true ]]; then
         echo "  6-7. Instalacja i konfiguracja CrowdSec"
