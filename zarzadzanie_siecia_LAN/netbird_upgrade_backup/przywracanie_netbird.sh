@@ -1,30 +1,30 @@
 #!/bin/bash
-# ========================================================================================
+# =============================================================================
 # Skrypt przywracania dla samodzielnie utrzymywanego NetBird
 # Utworzony dla OS: Debian 13 (Trixie)
-# ========================================================================================
+# =============================================================================
 # WYMAGANIA WSTĘPNE (wykonaj ręcznie przed uruchomieniem skryptu):
-#   1. Utwórz katalogi jako użytkownik "root" (w pierwszym przypadki zamiast netbird 
-#      możesz utworzyć inny katalog - wtedy poniżej podaj go w zmiennej "NETBIRD_DIR"):  
-#      mkdir /netbird 
-#      mkdir /var/lib/docker/volumes/
-#   2. Przekopiuj wolumeny Docker:  /var/lib/docker/volumes/netbird_*
-#   3. Przekopiuj katalog z plikami NetBird:  /netbird/
+#   1. Utwórz katalogi jako użytkownik "root":  
+#      mkdir -p /netbird /var/lib/docker/volumes/
+#   2. Przekopiuj wolumeny Docker:  /var/lib/docker/volumes/*
+#   3. Przekopiuj katalog z plikami NetBird.
 #      Zawierający: docker-compose.yml, Caddyfile, dashboard.env, relay.env,
 #                   management.json, turnserver.conf, zitadel.env, zdb.env,
 #                   machinekey/
-# ========================================================================================
+# =============================================================================
 
 set -euo pipefail
 
 # --- Konfiguracja ---
 NETBIRD_DIR="/netbird"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-LOG_FILE="/var/log/netbird-recovery_${TIMESTAMP}.log"
 HOSTNAME="vm-netbird"          # Nadaj nazwę hosta
 INSTALL_CROWDSEC=true          # Jeżeli chcesz też zainstalować CrowdSec: true = instaluj CrowdSec, false = pomiń instalację
 CROWDSEC_PORT=8081             # Zmieniamy port z 8080 (konflikt z NetBird) - możesz podać w razie potrzeby inny port
 CROWDSEC_ENROLL_KEY="1234567890" # Tutaj wpisz odczytany w panelu web CrowdSec klucz podpinający ten system
+
+
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE="/var/log/netbird-recovery_${TIMESTAMP}.log"
 
 # Porty do odblokowania w zaporze ogniowej UFW
 UFW_TCP_PORTS="22 80 443 33073 10000 33080"
@@ -46,7 +46,7 @@ SENSITIVE_FILES=(dashboard.env relay.env zitadel.env zdb.env)
 PUBLIC_FILES=(docker-compose.yml Caddyfile management.json turnserver.conf)
 
 # Pakiety systemowe
-BASE_PACKAGES=(mc sudo jq curl htop cron rsync logrotate ca-certificates gnupg)
+BASE_PACKAGES=(mc sudo jq curl htop cron ca-certificates gnupg)
 
 # --- Kolory ---
 RED='\033[0;31m'
@@ -104,31 +104,35 @@ trap cleanup_on_error EXIT
 CURRENT_STAGE="inicjalizacja"
 
 # =============================================================================
-# ETAP 0: Walidacja wstępna
+# ETAP 0: Weryfikacja wstępna
 # =============================================================================
 preflight_checks() {
     header "ETAP 0: Walidacja wstępna"
     CURRENT_STAGE="walidacja wstępna"
 
-    # Root check
+    # Sprawdzenie czy uruchamiane jako Root
     if [[ $EUID -ne 0 ]]; then
         abort "Skrypt musi być uruchomiony jako root."
     fi
 
-    # Debian check
+    # Sprawdzenie czy dystrybucja to Debian
     if [[ ! -f /etc/os-release ]]; then
         abort "Nie można określić systemu operacyjnego."
     fi
 
     source /etc/os-release
     if [[ "$ID" != "debian" ]]; then
-        abort "Skrypt przeznaczony dla Debiana. Wykryto: ${ID}"
+        warn "Skrypt przeznaczony dla Debiana. Wykryto: ${ID}"
+        warn "Dalsze działanie na własne ryzyko — skrypt może nie działać poprawnie."
+        if ! confirm "Czy kontynuować mimo nieobsługiwanej dystrybucji?"; then
+            abort "Przerwano — nieobsługiwana dystrybucja."
+        fi
     fi
     log "System: ${PRETTY_NAME}"
 
     # Sprawdzenie katalogu NetBird
     if [[ ! -d "$NETBIRD_DIR" ]]; then
-        abort "Katalog ${NETBIRD_DIR} nie istnieje. Przekopiuj dane z backupu."
+        abort "Katalog ${NETBIRD_DIR} nie istnieje. Przekopiuj najpierw dane z backupu."
     fi
 
     local missing_files=()
