@@ -18,7 +18,7 @@ set -euo pipefail
 # --- Konfiguracja ---
 NETBIRD_DIR="/netbird"
 HOSTNAME="vm-netbird"          # Nadaj nazwę hosta
-INSTALL_CROWDSEC=true          # Jeżeli chcesz też zainstalować CrowdSec: true = instaluj CrowdSec, false = pomiń instalację
+INSTALL_CROWDSEC=false          # Jeżeli chcesz też zainstalować CrowdSec: true = instaluj CrowdSec, false = pomiń instalację
 CROWDSEC_PORT=8081             # Zmieniamy port z 8080 (konflikt z NetBird) - możesz podać w razie potrzeby inny port
 CROWDSEC_ENROLL_KEY="1234567890" # Tutaj wpisz odczytany w panelu web CrowdSec klucz podpinający ten system
 
