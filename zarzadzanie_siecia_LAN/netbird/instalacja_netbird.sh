@@ -8,17 +8,21 @@
 #   2. Konfiguracja firewalla (UFW)
 #   3. Instalacja Docker
 #   4. Instalacja NetBird (oficjalny skrypt getting-started-with-zitadel.sh)
-#   5. Weryfikacja końcowa
+#   5. Instalacja CrowdSec (opcjonalnie)
+#   6. Konfiguracja CrowdSec
+#   7. Weryfikacja końcowa
 # =============================================================================
 
 set -euo pipefail
 
 # !!!!!! Konfiguracja !!!!!! #
-
 # Skonfiguruj parametry poniżej przed uruchomieniem skryptu:
 HOSTNAME="vm-netbird"                   # Wpisz nazwę hosta
-NETBIRD_DOMAIN="netbird.jojeadmin.pl"   # Domena DNS, pod którą ma działać NetBird
-NETBIRD_DIR="/netbird"                  # Wskaż katalog roboczy — tu trafią docker-compose.yml i inne pliki konfiguracyjne
+NETBIRD_DOMAIN="netbird.mojadomena.pl"   # Domena DNS, pod którą ma działać NetBird
+NETBIRD_DIR="/netbird"                  # Katalog roboczy — tu trafią docker-compose.yml i pliki konfiguracyjne
+INSTALL_CROWDSEC=false                   # true = zainstaluj CrowdSec, false = pomiń
+CROWDSEC_PORT=8081                      # Port CrowdSec API (domyślny 8080 koliduje z NetBird)
+CROWDSEC_ENROLL_KEY="1234567890"        # Klucz rejestracji z panelu web CrowdSec
 
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -29,7 +33,7 @@ UFW_TCP_PORTS="22 80 443 33073 10000 33080"
 UFW_UDP_PORTS="3478 49152:65535"
 
 # Pakiety systemowe
-BASE_PACKAGES=(mc sudo jq curl htop cron rsync logrotate ca-certificates gnupg)
+BASE_PACKAGES=(mc sudo jq curl htop cron ca-certificates gnupg)
 
 # --- Kolory ---
 RED='\033[0;31m'
@@ -92,25 +96,29 @@ NETBIRD_ADMIN_USER=""
 NETBIRD_ADMIN_PASS=""
 
 # =============================================================================
-# ETAP 0: Walidacja wstępna
+# ETAP 0: Weryfikacja wstępna
 # =============================================================================
 preflight_checks() {
     header "ETAP 0: Walidacja wstępna"
     CURRENT_STAGE="walidacja wstępna"
 
-    # Root check
+    # Sprawdzenie czy uruchamiane jako Root
     if [[ $EUID -ne 0 ]]; then
         abort "Skrypt musi być uruchomiony jako root."
     fi
 
-    # Debian check
+    # Sprawdzenie czy dystrybucja to Debian
     if [[ ! -f /etc/os-release ]]; then
         abort "Nie można określić systemu operacyjnego."
     fi
 
     source /etc/os-release
     if [[ "$ID" != "debian" ]]; then
-        abort "Skrypt przeznaczony dla Debiana. Wykryto: ${ID}"
+        warn "Skrypt przeznaczony dla Debiana. Wykryto: ${ID}"
+        warn "Dalsze działanie na własne ryzyko — skrypt może nie działać poprawnie."
+        if ! confirm "Czy kontynuować mimo nieobsługiwanej dystrybucji?"; then
+            abort "Przerwano — nieobsługiwana dystrybucja."
+        fi
     fi
     log "System: ${PRETTY_NAME}"
 
@@ -358,10 +366,125 @@ install_netbird() {
 }
 
 # =============================================================================
-# ETAP 5: Weryfikacja końcowa
+# ETAP 5: Instalacja CrowdSec
+# =============================================================================
+install_crowdsec() {
+    header "ETAP 5: Instalacja CrowdSec"
+    CURRENT_STAGE="instalacja CrowdSec"
+
+    # Instalacja repozytorium CrowdSec
+    log "Dodawanie repozytorium CrowdSec..."
+    if ! retry 3 5 bash -c 'curl -s https://install.crowdsec.net | sh' 2>&1 | tee -a "$LOG_FILE"; then
+        warn "Nie udało się dodać repozytorium CrowdSec."
+        if ! confirm "Pominąć instalację CrowdSec?"; then
+            abort "Przerwano — nie udało się zainstalować CrowdSec."
+        fi
+        return 0
+    fi
+
+    # Instalacja CrowdSec
+    log "Instalacja CrowdSec..."
+    if ! apt-get install -y -qq crowdsec 2>&1 | tee -a "$LOG_FILE"; then
+        warn "Nie udało się zainstalować CrowdSec."
+        return 1
+    fi
+
+    # Instalacja firewall bouncer
+    log "Instalacja CrowdSec Firewall Bouncer..."
+    if ! apt-get install -y -qq crowdsec-firewall-bouncer-iptables 2>&1 | tee -a "$LOG_FILE"; then
+        warn "Nie udało się zainstalować firewall bouncer."
+    fi
+
+    log "CrowdSec zainstalowany."
+}
+
+# =============================================================================
+# ETAP 6: Konfiguracja CrowdSec (zmiana portu z 8080 na CROWDSEC_PORT)
+# =============================================================================
+configure_crowdsec() {
+    header "ETAP 6: Konfiguracja CrowdSec (port ${CROWDSEC_PORT})"
+    CURRENT_STAGE="konfiguracja CrowdSec"
+
+    local config_file="/etc/crowdsec/config.yaml"
+    local creds_file="/etc/crowdsec/local_api_credentials.yaml"
+    local bouncer_file="/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
+
+    # Sprawdzenie czy port 8080 jest zajęty (przez NetBird)
+    if ss -tlnp | grep -q ':8080 '; then
+        log "Port 8080 zajęty (NetBird). Zmiana portu CrowdSec na ${CROWDSEC_PORT}."
+    else
+        log "Port 8080 wolny, ale zmieniam na ${CROWDSEC_PORT} prewencyjnie."
+    fi
+
+    # Zmiana portu w config.yaml
+    if [[ -f "$config_file" ]]; then
+        log "Modyfikacja ${config_file}..."
+        if grep -q 'listen_uri' "$config_file"; then
+            sed -i "s|listen_uri:.*|listen_uri: 127.0.0.1:${CROWDSEC_PORT}|" "$config_file"
+        else
+            warn "Nie znaleziono 'listen_uri' w ${config_file}. Sprawdź ręcznie."
+        fi
+    else
+        warn "Brak pliku ${config_file}"
+    fi
+
+    # Zmiana URL w local_api_credentials.yaml
+    if [[ -f "$creds_file" ]]; then
+        log "Modyfikacja ${creds_file}..."
+        sed -i "s|url:.*|url: http://127.0.0.1:${CROWDSEC_PORT}/|" "$creds_file"
+    else
+        warn "Brak pliku ${creds_file}"
+    fi
+
+    # Zmiana URL w bouncer config
+    if [[ -f "$bouncer_file" ]]; then
+        log "Modyfikacja ${bouncer_file}..."
+        sed -i "s|api_url:.*|api_url: http://127.0.0.1:${CROWDSEC_PORT}/|" "$bouncer_file"
+    else
+        warn "Brak pliku ${bouncer_file}"
+    fi
+
+    # Restart serwisów CrowdSec
+    log "Restartowanie CrowdSec..."
+    systemctl restart crowdsec 2>&1 | tee -a "$LOG_FILE" || warn "Nie udało się zrestartować crowdsec."
+
+    sleep 3
+
+    if systemctl is-active --quiet crowdsec; then
+        log "CrowdSec działa na porcie ${CROWDSEC_PORT}."
+    else
+        warn "CrowdSec nie uruchomił się poprawnie. Sprawdź: journalctl -u crowdsec"
+    fi
+
+    # Restart firewall bouncer
+    log "Restartowanie firewall bouncer..."
+    systemctl enable --now crowdsec-firewall-bouncer 2>&1 | tee -a "$LOG_FILE" || \
+        warn "Nie udało się uruchomić firewall bouncer."
+
+    if systemctl is-active --quiet crowdsec-firewall-bouncer; then
+        log "CrowdSec Firewall Bouncer działa."
+    else
+        warn "Firewall Bouncer nie uruchomił się. Sprawdź: journalctl -u crowdsec-firewall-bouncer"
+    fi
+
+    # Enroll do konsoli CrowdSec
+    if [[ -n "$CROWDSEC_ENROLL_KEY" ]]; then
+        log "Rejestracja w konsoli CrowdSec..."
+        if cscli console enroll -e context "$CROWDSEC_ENROLL_KEY" 2>&1 | tee -a "$LOG_FILE"; then
+            log "Rejestracja w konsoli CrowdSec zakończona."
+        else
+            warn "Nie udało się zarejestrować w konsoli CrowdSec."
+        fi
+    fi
+
+    log "Konfiguracja CrowdSec zakończona."
+}
+
+# =============================================================================
+# ETAP 7: Weryfikacja końcowa
 # =============================================================================
 final_verification() {
-    header "ETAP 5: Weryfikacja końcowa"
+    header "ETAP 7: Weryfikacja końcowa"
     CURRENT_STAGE="weryfikacja końcowa"
 
     local errors=0
@@ -409,9 +532,27 @@ final_verification() {
         errors=$((errors + 1))
     fi
 
+    # CrowdSec
+    if [[ "$INSTALL_CROWDSEC" == true ]]; then
+        log "Sprawdzanie CrowdSec..."
+        if systemctl is-active --quiet crowdsec 2>/dev/null; then
+            log "  CrowdSec: OK (port ${CROWDSEC_PORT})"
+        else
+            warn "  CrowdSec: nie działa"
+        fi
+
+        if systemctl is-active --quiet crowdsec-firewall-bouncer 2>/dev/null; then
+            log "  Firewall Bouncer: OK"
+        else
+            warn "  Firewall Bouncer: nie działa"
+        fi
+    else
+        log "  CrowdSec: pominięty (INSTALL_CROWDSEC=false)"
+    fi
+
     # Sprawdzenie portów
     log "Sprawdzanie nasłuchujących portów..."
-    ss -tlnp | grep -E ':(80|443|8080|33073|10000|33080|3478) ' 2>&1 | tee -a "$LOG_FILE" || true
+    ss -tlnp | grep -E ':(80|443|8080|33073|10000|33080|3478|8081) ' 2>&1 | tee -a "$LOG_FILE" || true
 
     # Podsumowanie
     header "PODSUMOWANIE INSTALACJI"
@@ -421,6 +562,11 @@ final_verification() {
     log "Compose:     $(docker compose version 2>/dev/null || echo 'N/A')"
     log "Domena:      ${NETBIRD_DOMAIN}"
     log "UFW:         $(ufw status | head -1)"
+    if [[ "$INSTALL_CROWDSEC" == true ]]; then
+        log "CrowdSec:    $(systemctl is-active crowdsec 2>/dev/null || echo 'N/A')"
+    else
+        log "CrowdSec:    pominięty"
+    fi
     if [[ -f "${NETBIRD_DIR}/docker-compose.yml" ]]; then
         log "Kontenery:   ${running:-0}/${total:-0} działają"
         log "Katalog:     ${NETBIRD_DIR}"
@@ -460,7 +606,12 @@ main() {
     echo "  3. Konfiguracja firewalla (UFW)"
     echo "  4. Instalacja Docker"
     echo "  5. Instalacja NetBird (domena: ${NETBIRD_DOMAIN}, katalog: ${NETBIRD_DIR})"
-    echo "  6. Weryfikacja końcowa"
+    if [[ "$INSTALL_CROWDSEC" == true ]]; then
+        echo "  6. Instalacja i konfiguracja CrowdSec"
+    else
+        echo "  6. Instalacja i konfiguracja CrowdSec — POMINIĘTA (INSTALL_CROWDSEC=false)"
+    fi
+    echo "  7. Weryfikacja końcowa"
     echo ""
 
     if ! confirm "Rozpocząć instalację?"; then
@@ -473,6 +624,14 @@ main() {
     configure_ufw
     install_docker
     install_netbird
+
+    if [[ "$INSTALL_CROWDSEC" == true ]]; then
+        install_crowdsec
+        configure_crowdsec
+    else
+        log "Instalacja CrowdSec pominięta (INSTALL_CROWDSEC=false)."
+    fi
+
     final_verification
 
     header "GOTOWE"
